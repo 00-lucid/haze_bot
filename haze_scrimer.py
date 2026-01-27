@@ -1223,4 +1223,5 @@ async def help_command(ctx):
 
     await ctx.send(embed=embed)
 
-bot.run(TOKEN)
+if __name__ == "__main__":
+    bot.run(TOKEN)

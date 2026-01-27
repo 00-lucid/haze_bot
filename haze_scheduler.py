@@ -14,6 +14,9 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 ADMIN_ROLE_ID = int(os.getenv("ADMIN_ROLE_ID"))
+
+# 로그 파일 경로 설정
+LOG_FILE_PATH = "vote_log.txt"
 # ==========================================
 
 intents = discord.Intents.default()
@@ -23,43 +26,67 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # 투표 옵션 데이터
+# 투표 옵션 데이터
 VOTE_OPTIONS = [
-    ("월 19:00~21:00", "월_19-21"), ("월 21:00~23:00", "월_21-23"),
-    ("화 19:00~21:00", "화_19-21"), ("화 21:00~23:00", "화_21-23"),
-    ("수 19:00~21:00", "수_19-21"), ("수 21:00~23:00", "수_21-23"),
-    ("목 19:00~21:00", "목_19-21"), ("목 21:00~23:00", "목_21-23"),
-    ("금 19:00~21:00", "금_19-21"), ("금 21:00~23:00", "금_21-23"),
-    ("일 19:00~21:00", "일_19-21"), ("일 21:00~23:00", "일_21-23"),
+    ("월 19:00~21:00", "월_19-21"), ("월 20:00~22:00", "월_20-22"), ("월 21:00~23:00", "월_21-23"), ("월 22:00~24:00", "월_22-24"),
+    ("화 19:00~21:00", "화_19-21"), ("화 20:00~22:00", "화_20-22"), ("화 21:00~23:00", "화_21-23"), ("화 22:00~24:00", "화_22-24"),
+    ("수 19:00~21:00", "수_19-21"), ("수 20:00~22:00", "수_20-22"), ("수 21:00~23:00", "수_21-23"), ("수 22:00~24:00", "수_22-24"),
+    ("목 19:00~21:00", "목_19-21"), ("목 20:00~22:00", "목_20-22"), ("목 21:00~23:00", "목_21-23"), ("목 22:00~24:00", "목_22-24"),
+    ("금 19:00~21:00", "금_19-21"), ("금 20:00~22:00", "금_20-22"), ("금 21:00~23:00", "금_21-23"), ("금 22:00~24:00", "금_22-24"),
+    ("일 19:00~21:00", "일_19-21"), ("일 20:00~22:00", "일_20-22"), ("일 21:00~23:00", "일_21-23"), ("일 22:00~24:00", "일_22-24"),
 ]
 
+
+# 데이터 저장소 (메모리)
+# 구조: { user_id: { "월_19-21", "화_21-23" ... } }
 vote_data = {}
+
+def log_vote(user_id: int, username: str, action: str, time_slot: str):
+    """투표 내역을 파일에 로그로 기록합니다."""
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = f"[{timestamp}] 유저: {username} (ID: {user_id}) | {action}: {time_slot}\n"
+
+    with open(LOG_FILE_PATH, "a", encoding="utf-8") as f:
+        f.write(log_entry)
 
 def generate_status_embed(is_closed=False, show_details=False):
     total_voters = len(vote_data)
 
-    if show_details or is_closed:
-        result_counts = {value: 0 for _, value in VOTE_OPTIONS}
-        for choices in vote_data.values():
-            for choice in choices:
-                if choice in result_counts:
-                    result_counts[choice] += 1
+    # [수정됨] 단순 카운트가 아니라, 누가 투표했는지 ID 리스트를 담습니다.
+    # 구조: { "월_19-21": [123456(유저ID), 987654(유저ID)] }
+    result_voters = {value: [] for _, value in VOTE_OPTIONS}
 
-        sorted_results = sorted(result_counts.items(), key=lambda x: x[1], reverse=True)
+    for user_id, choices in vote_data.items():
+        for choice in choices:
+            if choice in result_voters:
+                result_voters[choice].append(user_id)
 
-        if total_voters > 0:
-            perfect_times = [
-                next(label for label, val in VOTE_OPTIONS if val == val_code)
-                for val_code, count in sorted_results if count == total_voters
-            ]
-        else:
-            perfect_times = []
+    # 정렬 (투표 많은 순)
+    # x[1]은 리스트이므로 len(x[1])로 길이를 비교해야 함
+    sorted_results = sorted(result_voters.items(), key=lambda x: len(x[1]), reverse=True)
 
-        details = ""
-        for val, count in sorted_results:
-            if count > 0:
-                label_name = next(label for label, v in VOTE_OPTIONS if v == val)
-                details += f"**{label_name}**: {count}명\n"
-        if not details: details = "내역 없음"
+    if total_voters > 0:
+        perfect_times = [
+            next(label for label, val in VOTE_OPTIONS if val == val_code)
+            for val_code, user_list in sorted_results if len(user_list) == total_voters
+        ]
+    else:
+        perfect_times = []
+
+    details = ""
+    # 상세 내역 텍스트 생성
+    for val, user_list in sorted_results:
+        count = len(user_list)
+        if count > 0:
+            label_name = next(label for label, v in VOTE_OPTIONS if v == val)
+
+            # [수정됨] 유저 ID를 멘션 형태(<@ID>)로 변환하여 나열
+            # 예: (@철수, @영희)
+            mentions = ", ".join([f"<@{uid}>" for uid in user_list])
+
+            details += f"**{label_name}**: {count}명 ({mentions})\n"
+
+    if not details: details = "내역 없음"
 
     if is_closed:
         title = "📊 투표 결과 확정"
@@ -72,6 +99,7 @@ def generate_status_embed(is_closed=False, show_details=False):
 
     embed = discord.Embed(title=title, description=desc, color=color)
 
+    # 상세 내용(누가 투표했는지)은 '관리자 미리보기'거나 '투표 종료'일 때만 표시
     if is_closed or show_details:
         if perfect_times:
             embed.add_field(name="🌟 모두 가능한 시간 (Best)", value="\n".join(perfect_times), inline=False)
@@ -89,23 +117,28 @@ class PersonalTimeButton(Button):
         style = discord.ButtonStyle.success if is_selected else discord.ButtonStyle.secondary
         super().__init__(style=style, label=label, custom_id=value)
         self.value = value
+        self.label_name = label  # 라벨 이름 저장
 
     async def callback(self, interaction: discord.Interaction):
-        # 버튼 누르면 바로 응답 대기 상태로 전환 (렉 방지)
         await interaction.response.defer()
 
         user_id = interaction.user.id
+        username = interaction.user.display_name
+
         if user_id not in vote_data:
             vote_data[user_id] = set()
 
         if self.value in vote_data[user_id]:
             vote_data[user_id].remove(self.value)
             self.style = discord.ButtonStyle.secondary
+            # 투표 취소 로그
+            log_vote(user_id, username, "투표 취소", self.label_name)
         else:
             vote_data[user_id].add(self.value)
             self.style = discord.ButtonStyle.success
+            # 투표 추가 로그
+            log_vote(user_id, username, "투표", self.label_name)
 
-            # defer()를 썼으므로 edit_message 대신 edit_original_response 사용
         await interaction.edit_original_response(view=self.view)
 
 class PersonalVoteView(View):
@@ -124,7 +157,6 @@ class MainVoteView(View):
     async def start_vote(self, interaction: discord.Interaction, button: Button):
         user_role_ids = [role.id for role in interaction.user.roles]
         if ADMIN_ROLE_ID in user_role_ids:
-            # 여기는 메시지만 보내면 되므로 일반 send_message 사용
             await interaction.response.send_message("🚫 관리자는 투표에 참여하지 않습니다.", ephemeral=True)
             return
 
@@ -137,11 +169,9 @@ class MainVoteView(View):
 
     @discord.ui.button(label="🔄 인원수 갱신", style=discord.ButtonStyle.secondary, custom_id="refresh_board", row=0)
     async def refresh_board(self, interaction: discord.Interaction, button: Button):
-        # [수정] 렉 방지를 위해 먼저 대기 상태로 전환
         await interaction.response.defer()
-
+        # 갱신 시에는 누가 투표했는지는 가리고(False) 인원수만 갱신
         new_embed = generate_status_embed(is_closed=False, show_details=False)
-        # defer 후에는 edit_original_message 사용
         await interaction.edit_original_response(embed=new_embed, view=self)
 
     @discord.ui.button(label="👀 (관리자) 현황 미리보기", style=discord.ButtonStyle.secondary, custom_id="admin_peek", row=1)
@@ -151,6 +181,7 @@ class MainVoteView(View):
             await interaction.response.send_message("🚫 권한이 없습니다.", ephemeral=True)
             return
 
+        # 여기서 show_details=True 이므로 누가 투표했는지 보임
         peek_embed = generate_status_embed(is_closed=False, show_details=True)
         peek_embed.title = "👀 현재 투표 현황 (관리자용)"
         peek_embed.description = "이 메시지는 관리자에게만 보입니다."
@@ -164,12 +195,11 @@ class MainVoteView(View):
             await interaction.response.send_message("🚫 권한이 없습니다.", ephemeral=True)
             return
 
-        # [수정] 렉 방지를 위해 먼저 대기 상태로 전환
         await interaction.response.defer()
 
+        # 투표 종료 시 show_details=True 이므로 결과에 이름이 공개됨
         final_embed = generate_status_embed(is_closed=True, show_details=True)
 
-        # 버튼을 없애고 결과판으로 업데이트
         await interaction.edit_original_response(embed=final_embed, view=None)
         await interaction.channel.send("✅ 투표가 종료되었습니다. 결과가 공개됩니다.")
 
@@ -191,8 +221,6 @@ async def check_schedule():
 
 @bot.command(name="startvote")
 async def start_vote_manual(ctx):
-    """관리자가 수동으로 투표를 시작하는 명령어"""
-    # ADMIN 역할 확인
     user_role_ids = [role.id for role in ctx.author.roles]
     if ADMIN_ROLE_ID not in user_role_ids:
         await ctx.send("🚫 이 명령어는 관리자만 사용할 수 있습니다.", delete_after=5)
@@ -201,6 +229,7 @@ async def start_vote_manual(ctx):
     vote_data.clear()
     embed = generate_status_embed(is_closed=False, show_details=False)
     await ctx.send(embed=embed, view=MainVoteView())
-    await ctx.message.delete()  # 명령어 메시지 삭제 (깔끔하게 유지)
+    await ctx.message.delete()
 
-bot.run(TOKEN)
+if __name__ == "__main__":
+    bot.run(TOKEN)

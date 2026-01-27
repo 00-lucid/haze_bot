@@ -1,8 +1,14 @@
+
 # haze_launcher.py
 import sys
 import os
 import threading
 import time
+
+# SSL 인증서 설정
+import ssl
+import certifi
+os.environ['SSL_CERT_FILE'] = certifi.where()
 
 def run_scheduler():
     """haze_scheduler 실행"""

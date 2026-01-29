@@ -153,10 +153,10 @@ class BotManager:
         env["SSL_CERT_FILE"] = certifi.where()
         cwd = os.path.dirname(bot.path) or get_data_dir()
 
-        # Windows에서 새 프로세스 그룹 생성
+        # Windows에서 새 콘솔 창으로 실행
         creationflags = 0
         if sys.platform == "win32":
-            creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+            creationflags = subprocess.CREATE_NEW_CONSOLE
 
         try:
             if bot.path.endswith(".exe"):
@@ -165,20 +165,14 @@ class BotManager:
                     cwd=cwd,
                     env=env,
                     creationflags=creationflags,
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
                 )
             else:
                 python_exe = find_python_executable()
                 bot.process = subprocess.Popen(
-                    [python_exe, bot.path],
+                    [python_exe, "-u", bot.path],  # -u: unbuffered 출력
                     cwd=cwd,
                     env=env,
                     creationflags=creationflags,
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
                 )
 
             print(f"[START] {bot.name} 시작됨 (PID: {bot.process.pid})")

@@ -52,8 +52,14 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # ==========================================
 def load_data():
     if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if not content:  # 빈 파일인 경우
+                    return {"matches": []}
+                return json.loads(content)
+        except json.JSONDecodeError:
+            return {"matches": []}
     return {"matches": []}
 
 def save_data(data):

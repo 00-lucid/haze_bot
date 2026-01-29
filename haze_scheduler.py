@@ -26,8 +26,8 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # 투표 옵션 데이터
-# 투표 옵션 데이터
 VOTE_OPTIONS = [
+    ("가능한 일정 없음", "none" ),
     ("월 19:00~21:00", "월_19-21"), ("월 20:00~22:00", "월_20-22"), ("월 21:00~23:00", "월_21-23"), ("월 22:00~24:00", "월_22-24"),
     ("화 19:00~21:00", "화_19-21"), ("화 20:00~22:00", "화_20-22"), ("화 21:00~23:00", "화_21-23"), ("화 22:00~24:00", "화_22-24"),
     ("수 19:00~21:00", "수_19-21"), ("수 20:00~22:00", "수_20-22"), ("수 21:00~23:00", "수_21-23"), ("수 22:00~24:00", "수_22-24"),
@@ -216,7 +216,7 @@ async def check_schedule():
         if channel:
             vote_data.clear()
             embed = generate_status_embed(is_closed=False, show_details=False)
-            await channel.send(embed=embed, view=MainVoteView())
+            await channel.send("@everyone 📢 차주 스크림 일정 투표가 시작되었습니다!", embed=embed, view=MainVoteView())
             await asyncio.sleep(60)
 
 @bot.command(name="startvote")
@@ -228,7 +228,7 @@ async def start_vote_manual(ctx):
 
     vote_data.clear()
     embed = generate_status_embed(is_closed=False, show_details=False)
-    await ctx.send(embed=embed, view=MainVoteView())
+    await ctx.send("@everyone 📢 차주 스크림 일정 투표가 시작되었습니다!", embed=embed, view=MainVoteView())
     await ctx.message.delete()
 
 if __name__ == "__main__":

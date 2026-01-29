@@ -418,7 +418,7 @@ class DashboardApp:
 
     def _load_initial_bots(self) -> None:
         base_path = get_base_path()
-        
+
         # 배포 환경에서는 .exe, 개발 환경에서는 .py
         if is_frozen():
             ext = ".exe"
@@ -428,8 +428,9 @@ class DashboardApp:
         fixed_bots = [
             BotSpec("fixed:scheduler", "scheduler", os.path.join(base_path, f"haze_scheduler{ext}"), True, True),
             BotSpec("fixed:scrimer", "scrimer", os.path.join(base_path, f"haze_latte{ext}"), True, True),
+            BotSpec("fixed:yum", "yum (상대팀 분석)", os.path.join(base_path, f"haze_yum{ext}"), True, True),
         ]
-        
+
         for bot in fixed_bots:
             self.manager.add_bot(bot)
 

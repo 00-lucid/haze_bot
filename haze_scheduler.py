@@ -5,6 +5,7 @@ import datetime
 import asyncio
 import os
 from dotenv import load_dotenv
+from zoneinfo import ZoneInfo  # Python 3.9+
 
 # ==========================================
 # [설정 구간]
@@ -17,6 +18,9 @@ ADMIN_ROLE_ID = int(os.getenv("ADMIN_ROLE_ID"))
 
 # 로그 파일 경로 설정
 LOG_FILE_PATH = "vote_log.txt"
+
+# 한국 시간대 설정
+KST = ZoneInfo("Asia/Seoul")
 # ==========================================
 
 intents = discord.Intents.default()
@@ -210,7 +214,7 @@ async def on_ready():
 
 @tasks.loop(minutes=1)
 async def check_schedule():
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(KST)  # 한국 시간 기준으로 변경
     if now.weekday() == 5 and now.hour == 22 and now.minute == 0:
         channel = bot.get_channel(CHANNEL_ID)
         if channel:
